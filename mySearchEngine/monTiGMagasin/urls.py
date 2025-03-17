@@ -7,4 +7,7 @@ urlpatterns = [
     path('infoproducts/poissons', views.InfoProductListPoissons.as_view()),
     path('infoproducts/crustaces', views.InfoProductListCrustaces.as_view()),
     path('infoproducts/fruitsdemer', views.InfoProductListFruitsDeMer.as_view()),
+    path('transactions/', views.TransactionsList.as_view()),
+    path('resumeFinancier/', views.ResumeFinancierView.as_view()),
+    path('resumeFinancier2/', views.ResumeFinancierView2.as_view())
 ]

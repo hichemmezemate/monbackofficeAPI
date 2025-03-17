@@ -231,12 +231,16 @@ class editProduct(APIView):
                 product_id = product.get('id')
                 new_quantity = float(product.get('newQuantity'))
                 new_price = float(product.get('newPrice'))
+                new_sellprice = float(product.get('newSellPrice'))
                 new_discount = float(product.get('newDiscount'))
 
                 prod = self.get_object(product_id)
                 prod.quantityInStock = new_quantity
                 if new_price != prod.price:
                     prod.price = new_price
+
+                if new_sellprice != prod.sellprice:
+                    prod.sellprice = new_sellprice
 
                 if new_quantity != prod.quantityInStock:
                     prod.price = new_price
