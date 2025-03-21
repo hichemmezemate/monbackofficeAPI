@@ -4,8 +4,6 @@ from myImageBank.config import randomImageUrl
 from django.http import Http404
 import secrets
 
-# Create your views here.
-
 class RandomImage(APIView):
     def get(self, request, format=None):
         try:

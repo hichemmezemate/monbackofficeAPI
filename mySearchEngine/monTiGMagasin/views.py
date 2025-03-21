@@ -7,31 +7,16 @@ from monTiGMagasin.serializers import InfoProductSerializer, TransactionsSeriali
 from django.db.models import Sum, F
 from rest_framework import status
 from django.db.models.functions import ExtractMonth, ExtractYear
-from datetime import datetime
-
-#######################
-#...TME3 JWT starts...#
+from django.db.models import Count
 from rest_framework.permissions import IsAuthenticated
-#...end of TME3 JWT...#
-#######################
 
-# Create your views here.
 class InfoProductList(APIView):
-#######################
-#...TME3 JWT starts...#
-    # permission_classes = (IsAuthenticated,)
-#...end of TME3 JWT...#
-#######################
     def get(self, request, format=None):
         products = InfoProduct.objects.all()
         serializer = InfoProductSerializer(products, many=True)
         return Response(serializer.data)
 class InfoProductDetail(APIView):
-#######################
-#...TME3 JWT starts...#
     permission_classes = (IsAuthenticated,)
-#...end of TME3 JWT...#
-#######################
     def get_object(self, tig_id):
         try:
             return InfoProduct.objects.get(tig_id=tig_id)
@@ -97,15 +82,12 @@ class ResumeFinancierView(APIView):
         transactions = Transactions.objects.all()
         summary = {}
 
-        # Apply filters
         if year:
             transactions = transactions.annotate(year=ExtractYear('date_transaction')).filter(year=year)
         if month:
             transactions = transactions.annotate(month=ExtractMonth('date_transaction')).filter(month=month)
 
-        # GROUPING LOGIC
         if year and month:
-            # Monthly Resume
             transactions = transactions.annotate(
                 year=ExtractYear('date_transaction'),
                 month=ExtractMonth('date_transaction')
@@ -119,7 +101,6 @@ class ResumeFinancierView(APIView):
                 self._update_summary(summary[key], item)
 
         elif year:
-            # Yearly Resume
             transactions = transactions.annotate(year=ExtractYear('date_transaction'))
             grouped = transactions.values('year', 'type_transaction').annotate(total=Sum('total'))
 
@@ -130,7 +111,6 @@ class ResumeFinancierView(APIView):
                 self._update_summary(summary[key], item)
 
         else:
-            # Global Resume (no filters)
             grouped = transactions.values('type_transaction').annotate(total=Sum('total'))
             key = "global"
             summary[key] = self._init_summary()
@@ -138,7 +118,6 @@ class ResumeFinancierView(APIView):
             for item in grouped:
                 self._update_summary(summary[key], item)
 
-        # Final calculations
         for data in summary.values():
             data['chiffre_affaire'] = round(data['chiffre_affaire'], 2)
             data['depenses'] = round(data['depenses'], 2)
@@ -172,7 +151,6 @@ class ResumeFinancierView2(APIView):
 
         transactions = Transactions.objects.all()
 
-        # Filter if year or month is provided
         if year:
             transactions = transactions.annotate(year=ExtractYear('date_transaction')).filter(year=year)
         if month:
@@ -207,7 +185,6 @@ class ResumeFinancierView2(APIView):
             elif type_transaction == 'PERTE':
                 summary[key]['pertes'] += total
 
-        # Calculate argent_net
         for key in summary:
             summary[key]['chiffre_affaire'] = round(summary[key]['chiffre_affaire'], 2)
             summary[key]['depenses'] = round(summary[key]['depenses'], 2)
@@ -215,93 +192,45 @@ class ResumeFinancierView2(APIView):
             summary[key]['argent_net'] = round(summary[key]['chiffre_affaire'] - summary[key]['depenses'], 2)
 
         return Response(summary, status=status.HTTP_200_OK)
+    
 
+class TransactionCountByProductView(APIView):
+    def get(self, request):
+        year = request.GET.get('year')
+        month = request.GET.get('month')
+        transaction_type = request.GET.get('type_transaction')
 
-# class ResumeFinancierView2(APIView):
-#     def get(self, request):
-#         year = request.GET.get('year')
-#         month = request.GET.get('month')
+        transactions = Transactions.objects.annotate(
+            year=ExtractYear('date_transaction'),
+            month=ExtractMonth('date_transaction')
+        )
 
-#         # Default response structure
-#         summary = {}
+        if year:
+            transactions = transactions.filter(year=year)
+        if month:
+            transactions = transactions.filter(month=month)
+        if transaction_type:
+            transactions = transactions.filter(type_transaction=transaction_type)
 
-#         if not year:
-#             return Response({"error": "Year is required"}, status=400)
+        summary = {}
 
-#         # Get all transactions, optionally filter by year and month
-#         transactions = Transactions.objects.all()
+        if not year and not month:
+            transactions = transactions.values('type_transaction', 'productName').annotate(count=Count('id'))
+            for item in transactions:
+                tx_type = item['type_transaction']
+                product = item['productName']
+                count = item['count']
 
-#         print("Transactions : ", transactions)
+                summary.setdefault('global', {}).setdefault(tx_type, {})[product] = count
+        else:
+            transactions = transactions.values('year', 'month', 'productName', 'type_transaction').annotate(count=Count('id'))
+            for item in transactions:
+                y = item['year']
+                m = item['month']
+                tx_type = item['type_transaction']
+                product = item['productName']
+                count = item['count']
 
-#         # Apply filters if year or month is provided
-#         if year:
-#             transactions = transactions.annotate(year=ExtractYear('date_transaction')).filter(year=year)
-#         if month:
-#             transactions = transactions.annotate(month=ExtractMonth('date_transaction')).filter(month=month)
+                summary.setdefault(y, {}).setdefault(m, {}).setdefault(tx_type, {})[product] = count
 
-#         # Grouping and summarizing data
-#         if year and month:
-#             # Monthly Resume (Year and Month)
-#             transactions = transactions.annotate(year=ExtractYear('date_transaction'), month=ExtractMonth('date_transaction'))
-#             grouped = transactions.values('year', 'month', 'type_transaction').annotate(total=Sum('total'))
-
-#             for item in grouped:
-#                 key = f"{item['year']}-{item['month']:02d}"
-#                 if key not in summary:
-#                     summary[key] = self._init_summary()
-#                 self._update_summary(summary[key], item)
-
-#         elif year:
-#             # Yearly Resume (Year Only)
-#             transactions = transactions.annotate(year=ExtractYear('date_transaction'))
-#             grouped = transactions.values('year', 'type_transaction').annotate(total=Sum('total'))
-
-#             for item in grouped:
-#                 key = str(item['year'])
-#                 if key not in summary:
-#                     summary[key] = self._init_summary()
-#                 self._update_summary(summary[key], item)
-
-#         else:
-#             # Global Resume (No filters)
-#             grouped = transactions.values('type_transaction').annotate(total=Sum('total'))
-#             key = "global"
-#             summary[key] = self._init_summary()
-
-#             for item in grouped:
-#                 self._update_summary(summary[key], item)
-
-#         # Ensure all months (1 to 12) are included for the requested year, even if no data for some months
-#         if year:
-#             for month_num in range(1, 13):  # Loop through all 12 months
-#                 month_key = f"{year}-{month_num:02d}"
-#                 if month_key not in summary:
-#                     summary[month_key] = self._init_summary()
-
-#         # Final calculations and rounding
-#         for data in summary.values():
-#             data['chiffre_affaire'] = round(data['chiffre_affaire'], 2)
-#             data['depenses'] = round(data['depenses'], 2)
-#             data['pertes'] = round(data['pertes'], 2)
-#             data['argent_net'] = round(data['chiffre_affaire'] - data['depenses'], 2)
-
-#         return Response(summary, status=200)
-
-#     def _init_summary(self):
-#         """Initialize summary for a specific month"""
-#         return {
-#             'chiffre_affaire': 0.0,
-#             'depenses': 0.0,
-#             'pertes': 0.0,
-#             'argent_net': 0.0,
-#         }
-
-#     def _update_summary(self, target, item):
-#         """Update the summary for each transaction type"""
-#         total = item['total'] or 0.0
-#         if item['type_transaction'] == 'VENTE':
-#             target['chiffre_affaire'] += total
-#         elif item['type_transaction'] == 'AJOUT':
-#             target['depenses'] += abs(total)
-#         elif item['type_transaction'] == 'PERTE':
-#             target['pertes'] += total
+        return Response(summary, status=status.HTTP_200_OK)
