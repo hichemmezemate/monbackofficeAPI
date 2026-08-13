@@ -78,14 +78,6 @@ Comment ça s'articule : mySearchEngine/ est le projet Django qui inclut et rout
 - Documenter les endpoints spécifiques des apps (mytig, myImageBank, monTiGMagasin) : exemples de requêtes, schémas JSON, permissions.
 - Supprimer le fichier `db.sqlite3` du dépôt si la DB ne doit pas être versionnée, ou l'ignorer via `.gitignore`.
 
-## Contribution
-1. Fork & clone
-2. Créer une branche feature/bugfix
-3. Tester localement, ajouter migrations si nécessaire
-4. Ouvrir une pull request décrivant le changement
-
-## Questions utiles à poser
-- Quelles routes et ressources fournissent `mytig`, `myImageBank` et `monTiGMagasin` (exemples d'URLs et schémas JSON) ?
 - Voulez-vous que la clé SECRET_KEY soit lue depuis une variable d'environnement et que DEBUG soit mis à False par défaut en production ?
 - Faut-il supprimer `db.sqlite3` du dépôt et fournir un script d'initialisation / fixtures pour peupler la base ?
 
